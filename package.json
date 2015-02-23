@@ -3,7 +3,7 @@
 	"title": "Git Projects",
 	"description": "Git Projects is a package which allows you to quickly list and open your local git repositories.",
 	"homepage": "https://github.com/brad-jones/git-projects",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"author": "Brad Jones <brad@bjc.id.au>",
 	"license": "MIT"
 }

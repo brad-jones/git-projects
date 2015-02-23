@@ -71,38 +71,104 @@ define(function (require, exports, module)
 
 	if (prefs.get("basePath") === undefined)
 	{
+		// Show the first run modal
 		var firstRunDialog = Dialogs.showModalDialogUsingTemplate
 		(
 			require('text!./modals/first-run.html'),	// grab modal html
 			false										// do not auto dismiss
 		);
 
-		$('.'+COMP_NAME+'.modal button.save').click(function(event)
+		// Set the placeholder based on the OS we are running on
+		// This may provide an additonal hint to help windows users.
+		switch (whatOs())
 		{
-			var path = $('#'+COMP_NAME+'-base-path').val();
+			case 'WIN': var placeholder = 'C:\\Base\\Path'; break;
+			default: var placeholder = '/base/path';
+		}
 
-			FileSystem.resolve(path, function(err, dir, stat)
+		$('.'+COMP_NAME+' input.base-path').prop('placeholder', placeholder);
+
+		// Browse Button Handler
+		$('.'+COMP_NAME+' button.browse').click(function(event)
+		{
+			FileSystem.showOpenDialog
+			(
+				false,						// dont allow multiple selections
+				true,						// pick folders not files
+				'Git Projects: Base Path',	// dialog title
+				null,						// show the last browsed folder
+				null,						// N/A when picking folders
+				function(err, dir)			// dialog callback
+				{
+					if (dir[0] !== undefined)
+					{
+						$('.'+COMP_NAME+' input.base-path').val(dir[0]);
+					}
+				}
+			);
+		});
+
+		// Cancel Button Handler
+		$('.'+COMP_NAME+' button.cancel').click(function(event)
+		{
+			firstRunDialog.close();
+
+			Dialogs.showModalDialog
+			(
+				COMP_NAME+'-error',
+				'Opps: You did not complete the Git Projects Setup',
+				'\
+					Without the base path set, this extension is pretty useless,\
+					however you may set it manually in your Prefrences File.\
+					Also please note that until the Base Path is set you will\
+					continue to get this popup everytime you start Brackets.\
+				'
+			);
+		});
+
+		// Save Button Handler
+		$('.'+COMP_NAME+' button.save').click(function(event)
+		{
+			var path = $('.'+COMP_NAME+' input.base-path').val();
+
+			// Fixes: brad-jones/git-projects#2
+			// Convert windows paths to unix style
+			path = FileUtils.convertWindowsPathToUnixPath(path);
+
+			try
 			{
-				if (err == 'NotFound')
+				FileSystem.resolve(path, function(err, dir, stat)
 				{
-					Dialogs.showModalDialog
-					(
-						COMP_NAME+'-error',
-						'Opps: Path Not Found',
-						'The path you specfied does not exist on your system!'
-					);
-				}
-				else
-				{
-					firstRunDialog.close();
+					if (err == 'NotFound')
+					{
+						Dialogs.showModalDialog
+						(
+							COMP_NAME+'-error',
+							'Opps: Path Not Found',
+							'The path you specfied does not exist on your system!'
+						);
+					}
+					else
+					{
+						firstRunDialog.close();
 
-					// ensure trailing slash - this is important
-					if (path.substr(-1,1) != '/') path = path + '/';
+						// ensure trailing slash - this is important
+						if (path.substr(-1,1) != '/') path = path + '/';
 
-					prefs.set("basePath", path);
-					prefs.save();
-				}
-			});
+						prefs.set("basePath", path);
+						prefs.save();
+					}
+				});
+			}
+			catch (Exception)
+			{
+				Dialogs.showModalDialog
+				(
+					COMP_NAME+'-error',
+					'Opps: Your Path was Not Valid',
+					'Paths must be absolute, relative paths are not allowed!'
+				);
+			}
 		});
 	}
 
@@ -214,6 +280,33 @@ define(function (require, exports, module)
 				}
 			}
 		});
+	}
+
+	/**
+	 * Simple OS Sniffing
+	 *
+	 * Stolen from the brackets.io homepage and re-purposed :)
+	 *
+	 * @return {string} A 3 letter abrivation of OS we running on.
+	 */
+	function whatOs()
+	{
+		var OS = null;
+
+		if (/Windows|Win32|WOW64|Win64/.test(navigator.userAgent))
+		{
+			OS = 'WIN';
+		}
+		else if (/Mac/.test(navigator.userAgent))
+		{
+			OS = 'OSX';
+		}
+		else if (/Linux|X11/.test(navigator.userAgent))
+		{
+			OS = 'LIN';
+		}
+
+		return OS;
 	}
 
 	// Work our magic
