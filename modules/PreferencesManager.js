@@ -5,8 +5,7 @@ define(function (require, exports, module)
 		BracketsPrefs = brackets.getModule('preferences/PreferencesManager'),
 		Dialogs = brackets.getModule('widgets/Dialogs'),
 		FileUtils = brackets.getModule('file/FileUtils'),
-		FileSystem = brackets.getModule('filesystem/FileSystem'),
-		Platform = require('modules/Platform')
+		FileSystem = brackets.getModule('filesystem/FileSystem')
 	;
 
 	// Some private vars
@@ -58,9 +57,9 @@ define(function (require, exports, module)
 
 		// Set the placeholder based on the OS we are running on
 		// This may provide an additonal hint to help windows users.
-		switch (Platform.get())
+		switch (brackets.platform)
 		{
-			case 'WIN': var placeholder = 'C:\\Base\\Path'; break;
+			case 'win': var placeholder = 'C:\\Base\\Path'; break;
 			default: var placeholder = '/base/path';
 		}
 

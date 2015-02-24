@@ -152,8 +152,6 @@ define(function (require, exports, module)
 		{
 			if (prefs.get('basePath') !== null)
 			{
-				console.log(COMP_NAME + ': building index');
-
 				viewState.set('projects', []);
 
 				findGitProjects
@@ -163,8 +161,6 @@ define(function (require, exports, module)
 						prefs.get('basePath')
 					)
 				);
-
-				console.log(COMP_NAME + ': index built');
 			}
 		}, 250);
 	}
