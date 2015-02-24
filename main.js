@@ -27,7 +27,7 @@ define(function (require, exports, module)
 		AppInit = brackets.getModule('utils/AppInit'),
 		FileUtils = brackets.getModule('file/FileUtils'),
 		FileSystem = brackets.getModule('filesystem/FileSystem'),
-		PreferencesManager = brackets.getModule('preferences/PreferencesManager'),
+		PreferencesManager = require('modules/PreferencesManager'),
 		ProjectManager = brackets.getModule('project/ProjectManager'),
 		Dialogs = brackets.getModule('widgets/Dialogs'),
 		ExtensionUtils = brackets.getModule("utils/ExtensionUtils"),
@@ -58,162 +58,14 @@ define(function (require, exports, module)
 	var menu = Menus.getMenu(Menus.AppMenuBar.FILE_MENU);
 	menu.addMenuItem(LIST_COMMAND, LIST_COMMAND_SHORTCUT);
 
-	/**
-	 * Preferences
-	 *
-	 * This section of code will load our extension preferences.
-	 * If the base path is undefined we will show the first-run modal.
-	 */
-	var prefs = PreferencesManager.getExtensionPrefs(COMP_NAME);
-	var viewState = PreferencesManager.stateManager.getPrefixedSystem(COMP_NAME);
+	// Setup our PreferencesManager
+	PreferencesManager.initPrefs(COMP_NAME);
+	var prefs = PreferencesManager.getPrefs();
+	var viewState = PreferencesManager.getViewState();
 
-	if (prefs.get("maxDepth") === undefined) prefs.set("maxDepth", 2);
-
-	if (prefs.get("basePath") === undefined)
-	{
-		// Show the first run modal
-		var firstRunDialog = Dialogs.showModalDialogUsingTemplate
-		(
-			require('text!./modals/first-run.html'),	// grab modal html
-			false										// do not auto dismiss
-		);
-
-		// Set the placeholder based on the OS we are running on
-		// This may provide an additonal hint to help windows users.
-		switch (whatOs())
-		{
-			case 'WIN': var placeholder = 'C:\\Base\\Path'; break;
-			default: var placeholder = '/base/path';
-		}
-
-		$('.'+COMP_NAME+' input.base-path').prop('placeholder', placeholder);
-
-		// Browse Button Handler
-		$('.'+COMP_NAME+' button.browse').click(function(event)
-		{
-			FileSystem.showOpenDialog
-			(
-				false,						// dont allow multiple selections
-				true,						// pick folders not files
-				'Git Projects: Base Path',	// dialog title
-				null,						// show the last browsed folder
-				null,						// N/A when picking folders
-				function(err, dir)			// dialog callback
-				{
-					if (dir[0] !== undefined)
-					{
-						$('.'+COMP_NAME+' input.base-path').val(dir[0]);
-					}
-				}
-			);
-		});
-
-		// Cancel Button Handler
-		$('.'+COMP_NAME+' button.cancel').click(function(event)
-		{
-			firstRunDialog.close();
-
-			Dialogs.showModalDialog
-			(
-				COMP_NAME+'-error',
-				'Opps: You did not complete the Git Projects Setup',
-				'\
-					Without the base path set, this extension is pretty useless,\
-					however you may set it manually in your Prefrences File.\
-					Also please note that until the Base Path is set you will\
-					continue to get this popup everytime you start Brackets.\
-				'
-			);
-		});
-
-		// Save Button Handler
-		$('.'+COMP_NAME+' button.save').click(function(event)
-		{
-			var path = $('.'+COMP_NAME+' input.base-path').val();
-
-			// Fixes: brad-jones/git-projects#2
-			// Convert windows paths to unix style
-			path = FileUtils.convertWindowsPathToUnixPath(path);
-
-			try
-			{
-				FileSystem.resolve(path, function(err, dir, stat)
-				{
-					if (err == 'NotFound')
-					{
-						Dialogs.showModalDialog
-						(
-							COMP_NAME+'-error',
-							'Opps: Path Not Found',
-							'The path you specfied does not exist on your system!'
-						);
-					}
-					else
-					{
-						firstRunDialog.close();
-
-						// ensure trailing slash - this is important
-						if (path.substr(-1,1) != '/') path = path + '/';
-
-						prefs.set("basePath", path);
-						prefs.save();
-					}
-				});
-			}
-			catch (Exception)
-			{
-				Dialogs.showModalDialog
-				(
-					COMP_NAME+'-error',
-					'Opps: Your Path was Not Valid',
-					'Paths must be absolute, relative paths are not allowed!'
-				);
-			}
-		});
-	}
-
-	/**
-	 * Quick Open Plugin
-	 *
-	 * This is where expose the functionality of this extension.
-	 */
-	QuickOpen.addQuickOpenPlugin
-	({
-		name: COMP_NAME,
-		label: HUMAN_NAME,  // ignored before Sprint 34
-		languageIds: [],  // empty array = all file types  (Sprint 23+)
-		fileTypes:   [],  // (< Sprint 23)
-		done: function () {},
-		search: function(query, matcher)
-		{
-			var matches = [];
-
-			// lose the custom prefix
-			query = query.substr(1);
-
-			// Use the string matcher on each project
-			$.each(getProjects(), function(key, value)
-			{
-				if (matcher.match(value, query))
-				{
-					matches.push(value);
-				}
-			});
-
-			return matches;
-		},
-		match: function(query)
-		{
-			if (query.indexOf(QUICK_OPEN_PREFIX) === 0)
-			{
-				return true;
-			}
-		},
-		itemSelect: function(item)
-		{
-			ProjectManager.openProject(item);
-		}
-	});
+	// Attach the indexGitProject method to some events.
+	AppInit.appReady(indexGitProjects);
+	PreferencesManager.onChange(indexGitProjects);
 
 	/**
 	 * Get the Projects List
@@ -283,43 +135,81 @@ define(function (require, exports, module)
 	}
 
 	/**
-	 * Simple OS Sniffing
+	 * Re Indexes the Git Projects
 	 *
-	 * Stolen from the brackets.io homepage and re-purposed :)
+	 * This method is attached to a number of events.
+	 * So that we don't rebuild the index multiple succsive
+	 * times we use a simple debounce timer mechanisium.
 	 *
-	 * @return {string} A 3 letter abrivation of OS we running on.
+	 * @return void
 	 */
-	function whatOs()
+	var deBounceTimer;
+	function indexGitProjects()
 	{
-		var OS = null;
+		clearTimeout(deBounceTimer);
 
-		if (/Windows|Win32|WOW64|Win64/.test(navigator.userAgent))
+		deBounceTimer = setTimeout(function()
 		{
-			OS = 'WIN';
-		}
-		else if (/Mac/.test(navigator.userAgent))
-		{
-			OS = 'OSX';
-		}
-		else if (/Linux|X11/.test(navigator.userAgent))
-		{
-			OS = 'LIN';
-		}
+			if (prefs.get('basePath') !== null)
+			{
+				console.log(COMP_NAME + ': building index');
 
-		return OS;
+				viewState.set('projects', []);
+
+				findGitProjects
+				(
+					FileSystem.getDirectoryForPath
+					(
+						prefs.get('basePath')
+					)
+				);
+
+				console.log(COMP_NAME + ': index built');
+			}
+		}, 250);
 	}
 
-	// Work our magic
-	AppInit.appReady(function()
-	{
-		viewState.set('projects', []);
+	/**
+	 * Quick Open Plugin
+	 *
+	 * This is where we expose the functionality of this extension.
+	 * We export nothing.
+	 */
+	QuickOpen.addQuickOpenPlugin
+	({
+		name: COMP_NAME,
+		label: HUMAN_NAME,	// ignored before Sprint 34
+		languageIds: [],	// empty array = all file types  (Sprint 23+)
+		fileTypes:   [],	// (< Sprint 23)
+		done: function () {},
+		search: function(query, matcher)
+		{
+			var matches = [];
 
-		findGitProjects
-		(
-			FileSystem.getDirectoryForPath
-			(
-				prefs.get("basePath")
-			)
-		);
+			// lose the custom prefix
+			query = query.substr(1);
+
+			// Use the string matcher on each project
+			$.each(getProjects(), function(key, value)
+			{
+				if (matcher.match(value, query))
+				{
+					matches.push(value);
+				}
+			});
+
+			return matches;
+		},
+		match: function(query)
+		{
+			if (query.indexOf(QUICK_OPEN_PREFIX) === 0)
+			{
+				return true;
+			}
+		},
+		itemSelect: function(item)
+		{
+			ProjectManager.openProject(item);
+		}
 	});
 });
