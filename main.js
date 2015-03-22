@@ -41,7 +41,7 @@ define(function (require, exports, module)
 		HUMAN_NAME = 'Git Projects',
 		COMP_NAME = 'git-projects',
 		LIST_COMMAND = COMP_NAME + '.list',
-		QUICK_OPEN_PREFIX = ':',
+		QUICK_OPEN_PREFIX = '*',
 		LIST_COMMAND_SHORTCUT = 'Alt-P'
 	;
 
