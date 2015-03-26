@@ -35,7 +35,8 @@ define(function (require, exports, module)
 		ExtensionUtils = brackets.getModule("utils/ExtensionUtils"),
 		CommandManager = brackets.getModule("command/CommandManager"),
 		Menus = brackets.getModule("command/Menus"),
-		QuickOpen = brackets.getModule("search/QuickOpen")
+		QuickOpen = brackets.getModule("search/QuickOpen"),
+		ChangeLog = require('modules/ChangeLog')
 	;
 
 	// Define some constants
@@ -64,6 +65,9 @@ define(function (require, exports, module)
 	PreferencesManager.initPrefs(COMP_NAME);
 	var prefs = PreferencesManager.getPrefs();
 	var viewState = PreferencesManager.getViewState();
+
+	// Load our change log module
+	ChangeLog.init(COMP_NAME, prefs);
 
 	// Attach the indexGitProject method to some events.
 	AppInit.appReady(indexGitProjects);
