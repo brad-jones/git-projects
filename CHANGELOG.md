@@ -1,5 +1,13 @@
 # Change Log
 
+## [v0.0.5](https://github.com/brad-jones/git-projects/tree/v0.0.5)
+
+[Full Changelog](https://github.com/brad-jones/git-projects/compare/v0.0.4...v0.0.5)
+
+**Implemented enhancements:**
+
+- New Change Log [\#5](https://github.com/brad-jones/git-projects/issues/5)
+
 ## [v0.0.4](https://github.com/brad-jones/git-projects/tree/v0.0.4) (2015-03-23)
 
 [Full Changelog](https://github.com/brad-jones/git-projects/compare/v0.0.3...v0.0.4)
