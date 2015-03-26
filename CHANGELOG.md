@@ -1,6 +1,6 @@
 # Change Log
 
-## [v0.0.5](https://github.com/brad-jones/git-projects/tree/v0.0.5)
+## [v0.0.5](https://github.com/brad-jones/git-projects/tree/v0.0.5) (2015-03-26)
 
 [Full Changelog](https://github.com/brad-jones/git-projects/compare/v0.0.4...v0.0.5)
 
