@@ -1,5 +1,7 @@
 define(function (require, exports, module)
 {
+	"use strict";
+
 	// Import some modules
 	var
 		BracketsPrefs = brackets.getModule('preferences/PreferencesManager'),

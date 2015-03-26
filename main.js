@@ -22,6 +22,8 @@
 
 define(function (require, exports, module)
 {
+	"use strict";
+
 	// Import some modules
 	var
 		AppInit = brackets.getModule('utils/AppInit'),
